@@ -9,6 +9,8 @@ const btnCopy = document.getElementById('btnCopy');
 const btnClear = document.getElementById('btnClear');
 const btnBoom = document.getElementById('btnBoom');
 const explosionRoot = document.getElementById('explosion-root');
+// missile button disabled until location acquired
+btnBoom.disabled = true;
 
 // Init world view
 const map = L.map(mapEl).setView([0, 0], 2);
@@ -19,6 +21,7 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 
 let marker = null;
 let accuracyCircle = null;
+let locationAcquired = false;
 
 function writeStatus(lines) {
   if (Array.isArray(lines)) { statusEl.textContent = lines.join('\n'); }
@@ -47,6 +50,8 @@ function clearMarker() {
   if (accuracyCircle) { map.removeLayer(accuracyCircle); accuracyCircle = null; }
   updateInfoPlaceholders();
   writeStatus('[OK] Buffer limpiado.');
+  locationAcquired = false;
+  btnBoom.disabled = true;
 }
 
 function placeMarker(lat, lng, acc) {
@@ -62,6 +67,8 @@ function placeMarker(lat, lng, acc) {
   marker.bindPopup('TARGET LOCKED').openPopup();
   updateInfo(lat, lng, acc);
   map.flyTo([lat, lng], 16, { duration: 0.75 });
+  locationAcquired = true;
+  btnBoom.disabled = false;
 }
 
 // Fancy locate flow
