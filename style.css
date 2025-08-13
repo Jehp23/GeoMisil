@@ -79,6 +79,11 @@ header.panel p { margin: 0; color: var(--muted); }
 .btn:hover { background: rgba(25,255,140,.12); transform: translateY(-1px); }
 .btn:active { transform: translateY(0); }
 .btn.neon { box-shadow: 0 0 18px rgba(25,255,140,.25), inset 0 1px 0 rgba(255,255,255,.08); }
+.btn:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+  filter: grayscale(0.6);
+}
 .btn.danger {
   background: linear-gradient(180deg, rgba(255, 59, 59, .15), rgba(120, 0, 0, .25));
   border-color: rgba(255,59,59,.6);
