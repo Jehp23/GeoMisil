@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Localizador :: SYS-TRACE v1.0</title>
+  <title>Localizador :: SYS-TRACE v1.1</title>
 
   <!-- Leaflet (CSS + JS) desde CDN -->
   <link
@@ -34,7 +34,8 @@
   <div class="toolbar panel">
     <button id="btnLocate" class="btn neon">▶ Obtener ubicación</button>
     <button id="btnCopy" class="btn">⎘ Copiar coords</button>
-    <button id="btnClear" class="btn danger">✖ Limpiar</button>
+    <button id="btnClear" class="btn">✖ Limpiar</button>
+    <button id="btnBoom" class="btn danger strong">🚀 DISPARAR MISIL</button>
   </div>
 
   <div id="map" class="panel" aria-label="Mapa con tu ubicación"></div>
@@ -45,6 +46,9 @@
       Si denegás permisos, hacé <b>click en el mapa</b> para posicionar manualmente.
     </p>
   </div>
+
+  <!-- Contenedor para explosión -->
+  <div id="explosion-root" aria-hidden="true"></div>
 
   <!-- Script propio -->
   <script src="script.js"></script>
