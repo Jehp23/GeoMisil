@@ -1,0 +1,141 @@
+/* ======== HACKER / TERMINAL THEME ======== */
+* { box-sizing: border-box; }
+:root {
+  --bg: #030708;
+  --panel: #0b1214;
+  --grid: rgba(25, 255, 140, 0.08);
+  --text: #9fffd6;
+  --muted: #58c6a9;
+  --accent: #19ff8c;
+  --accent-2: #00ffea;
+  --danger: #ff3b3b;
+}
+html, body { height: 100%; margin: 0; }
+body {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  color: var(--text);
+  background:
+    linear-gradient(transparent 31px, rgba(0, 0, 0, .35) 32px) repeat-y,
+    linear-gradient(90deg, transparent 31px, rgba(0, 0, 0, .35) 32px) repeat-x,
+    radial-gradient(1200px 600px at 10% -20%, #061012 0%, #020607 60%, #000 100%);
+  background-size: 32px 32px, 32px 32px, auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow: hidden;
+}
+
+/* CRT scanline overlay */
+.crt-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(0deg, rgba(255,255,255,0.07) 0px, rgba(255,255,255,0.07) 1px, transparent 2px, transparent 4px);
+  mix-blend-mode: overlay;
+  opacity: .25;
+  animation: flicker 5s infinite steps(50, end);
+}
+@keyframes flicker {
+  0%, 100% { opacity: .23; }
+  50% { opacity: .28; }
+}
+
+.panel {
+  background: linear-gradient(180deg, rgba(25, 255, 140, 0.06), rgba(0,0,0,0.25));
+  border: 1px solid rgba(25, 255, 140, 0.18);
+  border-radius: 8px;
+  padding: 10px 12px;
+  box-shadow:
+    inset 0 0 0 1px rgba(25,255,140,.06),
+    0 10px 30px rgba(0,0,0,.45);
+  backdrop-filter: blur(2px);
+}
+
+header.panel h1 {
+  margin: 0 0 4px;
+  font-size: clamp(1rem, 1.8vw, 1.25rem);
+  letter-spacing: .12em;
+  color: var(--accent);
+  text-shadow: 0 0 8px rgba(25,255,140,.35);
+}
+header.panel p { margin: 0; color: var(--muted); }
+
+.console {
+  min-height: 2.2rem;
+  font-size: .95rem;
+  color: var(--accent-2);
+  text-shadow: 0 0 6px rgba(0,255,234,.25);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.toolbar {
+  display: flex; gap: 8px; flex-wrap: wrap;
+}
+.btn {
+  background: rgba(25, 255, 140, .06);
+  color: var(--text);
+  border: 1px solid rgba(25,255,140,.35);
+  padding: .55rem .8rem;
+  border-radius: 6px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  cursor: pointer;
+  transition: transform .03s ease, box-shadow .15s ease, background .15s ease;
+  box-shadow: 0 8px 24px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.05);
+}
+.btn:hover { background: rgba(25,255,140,.12); transform: translateY(-1px); }
+.btn:active { transform: translateY(0); }
+.btn.neon { box-shadow: 0 0 18px rgba(25,255,140,.25), inset 0 1px 0 rgba(255,255,255,.08); }
+.btn.danger { border-color: rgba(255,59,59,.6); color: #ffb3b3; }
+
+#map {
+  height: 60vh;
+  min-height: 320px;
+  width: 100%;
+  border-radius: 10px;
+  overflow: hidden;
+  outline: 1px solid rgba(25,255,140,.25);
+}
+
+/* Info block */
+.info { color: var(--muted); line-height: 1.6; }
+code { color: var(--accent); font-weight: 800; }
+
+/* Blinking cursor */
+.blink { animation: blink 1s step-end infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+
+/* Scanline sweep effect when localizando */
+body.scan-running::before {
+  content: "";
+  position: fixed;
+  left: 0; right: 0; top: -20%;
+  height: 40%;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(0,255,170,0) 0%, rgba(0,255,170,.12) 50%, rgba(0,255,170,0) 100%);
+  filter: blur(6px);
+  animation: sweep 1.2s linear infinite;
+}
+@keyframes sweep {
+  0% { transform: translateY(-60vh); }
+  100% { transform: translateY(120vh); }
+}
+
+.tip { opacity: .9; }
+
+/* Dark theme for Leaflet controls */
+.leaflet-control-container .leaflet-control-zoom a {
+  background: rgba(0,0,0,.6);
+  color: var(--accent);
+  border: 1px solid rgba(25,255,140,.35);
+}
+.leaflet-control-attribution {
+  background: rgba(0,0,0,.5);
+  color: var(--muted);
+  border-radius: 6px;
+  padding: 2px 6px;
+  border: 1px solid rgba(25,255,140,.2);
+}
