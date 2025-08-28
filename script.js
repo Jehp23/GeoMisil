@@ -1,212 +1,162 @@
-// DOM elements
-const mapEl = document.getElementById('map');
-const statusEl = document.getElementById('status');
-const latEl = document.getElementById('lat');
-const lngEl = document.getElementById('lng');
-const accEl = document.getElementById('acc');
-const btnLocate = document.getElementById('btnLocate');
-const btnCopy = document.getElementById('btnCopy');
-const btnClear = document.getElementById('btnClear');
-const btnBoom = document.getElementById('btnBoom');
-const explosionRoot = document.getElementById('explosion-root');
-// missile button disabled until location acquired
-btnBoom.disabled = true;
+const $ = (sel) => document.querySelector(sel);
+const statusEl = $('#status');
+function writeStatus(msg){
+  const now = new Date().toLocaleTimeString();
+  statusEl.textContent = `[${now}] ${msg}`;
+}
 
-// Init world view
-const map = L.map(mapEl).setView([0, 0], 2);
+const btnLocate = $('#btnLocate');
+const btnFire = $('#btnFire');
+const btnTrackStart = $('#btnTrackStart');
+const btnTrackStop = $('#btnTrackStop');
+const btnExport = $('#btnExport');
+const btnClearHistory = $('#btnClearHistory');
+const btnToggleHistory = $('#btnToggleHistory');
+
+const historyPanel = $('#history-panel');
+const historyList = $('#history-list');
+const historyCount = $('#history-count');
+
+const map = L.map('map').setView([-24.786, -65.410], 13);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  maxZoom: 19,
-  attribution: '&copy; OpenStreetMap contributors'
+  maxZoom: 20
 }).addTo(map);
 
 let marker = null;
 let accuracyCircle = null;
-let locationAcquired = false;
 
-function writeStatus(lines) {
-  if (Array.isArray(lines)) { statusEl.textContent = lines.join('\n'); }
-  else { statusEl.textContent = String(lines || ''); }
-}
-
-function updateInfo(lat, lng, acc) {
-  latEl.textContent = lat.toFixed(6);
-  lngEl.textContent = lng.toFixed(6);
-  accEl.textContent = (acc != null && !Number.isNaN(acc)) ? Math.round(acc) : '—';
-}
-
-function updateInfoPlaceholders() {
-  latEl.textContent = '—';
-  lngEl.textContent = '—';
-  accEl.textContent = '—';
-}
-
-function setScan(active) {
-  document.body.classList.toggle('scan-running', !!active);
-  document.body.classList.toggle('scan-paused', !active);
-}
-
-function clearMarker() {
-  if (marker) { map.removeLayer(marker); marker = null; }
-  if (accuracyCircle) { map.removeLayer(accuracyCircle); accuracyCircle = null; }
-  updateInfoPlaceholders();
-  writeStatus('[OK] Buffer limpiado.');
-  locationAcquired = false;
-  btnBoom.disabled = true;
-}
-
-function placeMarker(lat, lng, acc) {
-  if (marker) marker.setLatLng([lat, lng]);
-  else marker = L.marker([lat, lng], { draggable: true }).addTo(map);
-
-  if (accuracyCircle) accuracyCircle.setLatLng([lat, lng]);
-  else accuracyCircle = L.circle([lat, lng], {
-    radius: acc || 0,
-    stroke: true, weight: 1, opacity: 0.6, fillOpacity: 0.08
-  }).addTo(map);
-
-  marker.bindPopup('TARGET LOCKED').openPopup();
-  updateInfo(lat, lng, acc);
-  map.flyTo([lat, lng], 16, { duration: 0.75 });
-  locationAcquired = true;
-  btnBoom.disabled = false;
-}
-
-// Fancy locate flow
-function locateMe() {
-  if (!('geolocation' in navigator)) {
-    writeStatus('[ERR] Geolocation no soportada por este navegador.');
-    return;
+function placeMarker(lat, lng, accuracy = 0){
+  if(!marker){
+    marker = L.marker([lat, lng], { draggable:true }).addTo(map);
+    marker.on('moveend', (e) => {
+      const p = e.target.getLatLng();
+      if (accuracyCircle) accuracyCircle.setLatLng(p);
+      if (tracking) addToHistory(p.lat, p.lng, accuracyCircle ? accuracyCircle.getRadius() : 0);
+    });
+  } else {
+    marker.setLatLng([lat, lng]);
   }
-
-  setScan(true);
-  writeStatus(['[SYS] Abriendo canal encriptado...', '[SYS] Cargando módulos GEO...', '[~] Triangulando señal...']);
-
-  navigator.geolocation.getCurrentPosition(
-    (pos) => {
-      const { latitude, longitude, accuracy } = pos.coords;
-      placeMarker(latitude, longitude, accuracy);
-      writeStatus(['[OK] Coordenadas obtenidas.', `LAT=${latitude.toFixed(6)} LNG=${longitude.toFixed(6)} ACC=${Math.round(accuracy)}m`]);
-      setScan(false);
-    },
-    (err) => {
-      const msg = { 1: '[DENY] Permiso denegado. Click en el mapa para setear manual.',
-                    2: '[WARN] Posición no disponible. Verificá conexión / GPS.',
-                    3: '[TIMEOUT] Operación expirada. Intentá de nuevo.' }[err.code] || '[ERR] Error desconocido.';
-      writeStatus(msg);
-      setScan(false);
-    },
-    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-  );
+  if(!accuracyCircle){
+    accuracyCircle = L.circle([lat,lng], { radius: accuracy, weight:1, fillOpacity:.07 }).addTo(map);
+  } else {
+    accuracyCircle.setLatLng([lat, lng]);
+    accuracyCircle.setRadius(accuracy);
+  }
 }
 
-// Manual click
 map.on('click', (e) => {
   const { lat, lng } = e.latlng;
-  placeMarker(lat, lng, 0);
-  writeStatus(`[MANUAL] Marcador en LAT=${lat.toFixed(6)} LNG=${lng.toFixed(6)}`);
+  placeMarker(lat, lng, accuracyCircle ? accuracyCircle.getRadius() : 0);
+  if (tracking) addToHistory(lat, lng, accuracyCircle ? accuracyCircle.getRadius() : 0);
 });
 
-// Drag marker
-function attachDragHandler() {
-  if (!marker) return;
-  marker.on('moveend', (e) => {
-    const { lat, lng } = e.target.getLatLng();
-    placeMarker(lat, lng, accuracyCircle ? accuracyCircle.getRadius() : 0);
-    writeStatus(`[MOVE] Nuevo target LAT=${lat.toFixed(6)} LNG=${lng.toFixed(6)}`);
-  });
-}
-map.on('layeradd', () => attachDragHandler());
-
-// Copy coords
-async function copyCoords() {
-  const lat = latEl.textContent;
-  const lng = lngEl.textContent;
-  if (lat === '—' || lng === '—') {
-    writeStatus('[WARN] No hay coordenadas para copiar.');
+function locateOnce(){
+  if(!('geolocation' in navigator)){
+    writeStatus('Geolocalización no disponible.');
     return;
   }
-  const text = `${lat}, ${lng}`;
-  try {
-    await navigator.clipboard.writeText(text);
-    writeStatus('[OK] Coordenadas copiadas al portapapeles.');
-  } catch {
-    writeStatus('[ERR] No se pudo copiar automáticamente.');
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      const { latitude:lat, longitude:lng, accuracy } = pos.coords;
+      placeMarker(lat, lng, accuracy);
+      map.setView([lat,lng], 16);
+      if (tracking) addToHistory(lat, lng, accuracy);
+    },
+    (err) => writeStatus(`Error: ${err.message}`),
+    { enableHighAccuracy: true }
+  );
+}
+btnLocate.addEventListener('click', locateOnce);
+
+// ===== Disparar misil =====
+btnFire.addEventListener('click', () => {
+  if(!marker){ writeStatus('No hay objetivo.'); return; }
+  const { lat, lng } = marker.getLatLng();
+  writeStatus(`🔥 Misil disparado a LAT=${lat.toFixed(5)}, LNG=${lng.toFixed(5)}`);
+  // acá podés disparar tu animación de explosión
+});
+
+// ===== Seguimiento con historial =====
+let tracking = false;
+let watchId = null;
+let trackPolyline = null;
+
+function loadHistory() {
+  try { return JSON.parse(localStorage.getItem('history')) || []; }
+  catch { return []; }
+}
+function saveHistory(list) {
+  localStorage.setItem('history', JSON.stringify(list));
+  historyCount.textContent = list.length;
+}
+let history = loadHistory(); saveHistory(history);
+
+function fmtTime(ts){ return new Date(ts).toLocaleTimeString(); }
+function addToHistory(lat, lng, acc=0){
+  const item = { lat, lng, acc, ts: Date.now() };
+  history.push(item); saveHistory(history);
+  renderHistory(); redrawTrack();
+}
+function clearHistory(){
+  history=[]; saveHistory(history);
+  renderHistory(); redrawTrack();
+}
+function renderHistory(){
+  historyList.innerHTML='';
+  history.slice().reverse().forEach(h=>{
+    const li=document.createElement('li');
+    li.innerHTML=`<span class="coords">LAT=${h.lat.toFixed(6)} · LNG=${h.lng.toFixed(6)} · ACC=${Math.round(h.acc)}m</span>
+    <span class="time">${fmtTime(h.ts)}</span>`;
+    li.addEventListener('click',()=>map.setView([h.lat,h.lng],17));
+    historyList.appendChild(li);
+  });
+}
+function redrawTrack(){
+  if(trackPolyline){ map.removeLayer(trackPolyline); trackPolyline=null; }
+  if(history.length>=2){
+    trackPolyline=L.polyline(history.map(h=>[h.lat,h.lng]),{weight:3}).addTo(map);
   }
 }
+renderHistory(); redrawTrack();
 
-// ======== EXPLOSION EFFECT ========
-function random(min, max) { return Math.random() * (max - min) + min; }
-
-function createParticle(x, y) {
-  const p = document.createElement('div');
-  p.className = 'particle';
-  const angle = random(0, Math.PI * 2);
-  const dist = random(120, 420); // alcance en px
-  const tx = Math.cos(angle) * dist;
-  const ty = Math.sin(angle) * dist;
-  p.style.left = x + 'px';
-  p.style.top = y + 'px';
-  p.style.setProperty('--tx', tx + 'px');
-  p.style.setProperty('--ty', ty + 'px');
-  p.style.width = p.style.height = random(3, 6) + 'px';
-  explosionRoot.appendChild(p);
-  // remover luego
-  setTimeout(() => p.remove(), 1200);
+function updateTrackButtons(){
+  btnTrackStart.disabled=tracking;
+  btnTrackStop.disabled=!tracking;
 }
+btnTrackStart.addEventListener('click',()=>{
+  if(tracking) return;
+  tracking=true; updateTrackButtons();
+  if('geolocation'in navigator && watchId===null){
+    watchId=navigator.geolocation.watchPosition(
+      (pos)=>{
+        const {latitude:lat,longitude:lng,accuracy:acc}=pos.coords;
+        placeMarker(lat,lng,acc);
+        addToHistory(lat,lng,acc);
+      },
+      (err)=>writeStatus(`Seguimiento error: ${err.message}`),
+      {enableHighAccuracy:true}
+    );
+  }
+});
+btnTrackStop.addEventListener('click',()=>{
+  tracking=false; updateTrackButtons();
+  if(watchId!==null){ navigator.geolocation.clearWatch(watchId); watchId=null; }
+});
+updateTrackButtons();
 
-function boomSound() {
-  try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const o = ctx.createOscillator();
-    const g = ctx.createGain();
-    o.type = 'triangle';
-    o.frequency.setValueAtTime(120, ctx.currentTime);
-    o.frequency.exponentialRampToValueAtTime(40, ctx.currentTime + 0.25);
-    g.gain.setValueAtTime(0.3, ctx.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
-    o.connect(g).connect(ctx.destination);
-    o.start();
-    o.stop(ctx.currentTime + 0.4);
-  } catch {}
-}
+btnExport.addEventListener('click',()=>{
+  if(!history.length) return;
+  const header='timestamp,datetime,lat,lng,accuracy\n';
+  const rows=history.map(h=>{
+    const iso=new Date(h.ts).toISOString();
+    return `${h.ts},${iso},${h.lat},${h.lng},${Math.round(h.acc)}`;
+  }).join('\n');
+  const blob=new Blob([header+rows],{type:'text/csv'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download='historial.csv'; a.click();
+  URL.revokeObjectURL(url);
+});
+btnClearHistory.addEventListener('click',()=>{ if(confirm('¿Borrar historial?')) clearHistory(); });
+btnToggleHistory.addEventListener('click',()=>historyPanel.classList.toggle('hidden'));
 
-function explodeAtCenter() {
-  const rect = explosionRoot.getBoundingClientRect();
-  const cx = rect.left + rect.width / 2;
-  const cy = rect.top + rect.height / 2;
-
-  // Flash
-  const flash = document.createElement('div');
-  flash.className = 'flash';
-  explosionRoot.appendChild(flash);
-  setTimeout(() => flash.remove(), 600);
-
-  // Shockwave ring
-  const ring = document.createElement('div');
-  ring.className = 'shockwave';
-  explosionRoot.appendChild(ring);
-  setTimeout(() => ring.remove(), 1400);
-
-  // Particles
-  for (let i = 0; i < 80; i++) createParticle(cx, cy);
-
-  // Screen shake on body and map
-  document.body.classList.add('shake');
-  mapEl.classList.add('shake');
-  setTimeout(() => {
-    document.body.classList.remove('shake');
-    mapEl.classList.remove('shake');
-  }, 700);
-
-  boomSound();
-}
-
-btnBoom.addEventListener('click', explodeAtCenter);
-
-// Events
-btnLocate.addEventListener('click', locateMe);
-btnCopy.addEventListener('click', copyCoords);
-btnClear.addEventListener('click', clearMarker);
-
-// Initial message
-writeStatus('[READY] Presioná "Obtener ubicación" o lanzá el protocolo de impacto.');
+locateOnce();
